@@ -1,38 +1,61 @@
-// Jenkinsfile for Windows
 pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE_NAME = "my-flask-app" // Replace with your desired image name
+        DOCKER_IMAGE_NAME = "my-flask-app"
     }
 
     stages {
         stage('Clone Repository') {
             steps {
                 echo 'Cloning Git repository'
-                // Git works the same on Windows if installed
-                bat 'git clone -b main https://github.com/Aashika90/python-docker-ci.git'
-                // Move into the repo folder
-                bat 'cd python-docker-ci'
+                bat """
+                if not exist python-docker-ci (
+                    git clone -b main https://github.com/Aashika90/python-docker-ci.git
+                )
+                """
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker image'
-                // Windows command to build Docker image
-                bat "docker build -t %DOCKER_IMAGE_NAME% ."
+                bat """
+                cd python-docker-ci
+                docker build -t %DOCKER_IMAGE_NAME% .
+                """
+            }
+        }
+
+        stage('Stop Existing Container') {
+            steps {
+                echo 'Stopping existing Docker container if it exists'
+                bat """
+                cd python-docker-ci
+                docker stop flask-container
+                if %ERRORLEVEL% NEQ 0 echo Container not running
+                """
+            }
+        }
+
+        stage('Remove Existing Container') {
+            steps {
+                echo 'Removing existing Docker container if it exists'
+                bat """
+                cd python-docker-ci
+                docker rm flask-container
+                if %ERRORLEVEL% NEQ 0 echo Container not found
+                """
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                echo 'Running the Docker container'
-                // Stop and remove existing container if exists
-                bat "docker stop flask-container || echo Container not running"
-                bat "docker rm flask-container || echo Container not found"
-                // Run the new container
-                bat "docker run -d --name flask-container -p 5000:5000 %DOCKER_IMAGE_NAME%"
+                echo 'Running new Docker container'
+                bat """
+                cd python-docker-ci
+                docker run -d --name flask-container -p 5000:5000 %DOCKER_IMAGE_NAME%
+                """
             }
         }
     }
